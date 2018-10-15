@@ -12,10 +12,10 @@ import (
 	"strings"
 
 	"github.com/pkg/errors"
-	"github.com/volatiletech/sqlboiler/drivers"
-	"github.com/volatiletech/sqlboiler/importers"
-	"github.com/volatiletech/sqlboiler/strmangle"
-	"github.com/volatiletech/sqlboiler/templatebin"
+	"github.com/admpub/sqlboiler/drivers"
+	"github.com/admpub/sqlboiler/importers"
+	"github.com/admpub/sqlboiler/strmangle"
+	"github.com/admpub/sqlboiler/templatebin"
 )
 
 const (

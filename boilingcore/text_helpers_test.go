@@ -3,7 +3,7 @@ package boilingcore
 import (
 	"testing"
 
-	"github.com/volatiletech/sqlboiler/drivers"
+	"github.com/admpub/sqlboiler/drivers"
 )
 
 func TestTxtNameToOne(t *testing.T) {

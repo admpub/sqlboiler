@@ -1,7 +1,7 @@
 package boil
 
 import (
-	"github.com/volatiletech/sqlboiler/strmangle"
+	"github.com/admpub/sqlboiler/strmangle"
 )
 
 // Columns kinds

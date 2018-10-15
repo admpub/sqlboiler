@@ -3,8 +3,8 @@ package boilingcore
 import (
 	"fmt"
 
-	"github.com/volatiletech/sqlboiler/drivers"
-	"github.com/volatiletech/sqlboiler/strmangle"
+	"github.com/admpub/sqlboiler/drivers"
+	"github.com/admpub/sqlboiler/strmangle"
 )
 
 // Aliases defines aliases for the generation run
