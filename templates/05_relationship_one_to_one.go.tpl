@@ -5,7 +5,7 @@
 		{{- $ftable := $.Aliases.Table $rel.ForeignTable -}}
 		{{- $relAlias := $ftable.Relationship $rel.Name }}
 // {{$relAlias.Local}} pointed to by the foreign key.
-func (o *{{$ltable.UpSingular}}) {{$relAlias.Local}}(mods ...qm.QueryMod) ({{$ftable.DownSingular}}Query) {
+func (o *{{$ltable.UpSingular}}) {{$relAlias.Local}}_(mods ...qm.QueryMod) ({{$ftable.DownSingular}}Query) {
 	queryMods := []qm.QueryMod{
 		qm.Where("{{$rel.ForeignColumn}}=?", o.{{$ltable.Column $rel.Column}}),
 	}
