@@ -3,6 +3,31 @@
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## [v3.1.0] - 2018-10-29
+
+### Added
+
+- Add extra text to clarify the conditions required for a transparent join table
+  in the readme.
+- Add extra development instructions to the CONTRIBUTING.md (thanks @gemscng)
+- Add `UpdateAllG` function variant (thanks @gemscng)
+- Add context to Find examples in README.md (thanks @jones77)
+
+### Fixed
+
+- Fix boil.sh did not go-generate sqlboiler when using `all`, it now does
+  `sqlboiler` and all drivers as well.
+- Fix a bug with MSSQL exists finisher, it now uses `*` instead of the schema
+  name and a star (like the count query).
+- Fix a panic in aliases code (thanks @nadilas)
+- Fix bug when eager loading with null.Uint64 ids
+- Fix dead links to drivers in README (thanks @DenLilleMand)
+- Fix a problem with eager loading where null foreign keys would create bad IDs
+  and cause general problems.
+- Fix mysql bigint signed type to not use an unsigned int in Go (thanks @nazo)
+- Fix an issue where generated tests failed when output directory was too
+  far away from the config file (thanks @gedorinku).
+
 ## [v3.0.1] - 2018-08-24
 
 ### Fixed

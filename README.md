@@ -122,10 +122,10 @@ Table of Contents
 
 | Database          | Driver Location |
 | ----------------- | --------------- |
-| PostgreSQL        | https://github.com/admpub/sqlboiler/drivers/sqlboiler-psql
-| MySQL             | https://github.com/admpub/sqlboiler/drivers/sqlboiler-mysql
-| MSSQLServer 2012+ | https://github.com/admpub/sqlboiler/drivers/sqlboiler-mssql
-| SQLite3           | https://github.com/admpub/sqlboiler-sqlite3
+| PostgreSQL        | [https://github.com/admpub/sqlboiler/drivers/sqlboiler-psql](drivers/sqlboiler-psql)
+| MySQL             | [https://github.com/admpub/sqlboiler/drivers/sqlboiler-mysql](drivers/sqlboiler-mysql)
+| MSSQLServer 2012+ | [https://github.com/admpub/sqlboiler/drivers/sqlboiler-mysql](drivers/sqlboiler-mssql)
+| SQLite3           | https://github.com/volatiletech/sqlboiler-sqlite3
 | CockroachDB       | https://github.com/glerchundi/sqlboiler-crdb
 
 **Note:** SQLBoiler supports out of band driver support so you can make your own
@@ -209,9 +209,11 @@ fmt.Println(len(users.R.FavoriteMovies))
   and we agree that it's good form, so we're enforcing this format for all drivers for the time being.
 * Join tables should use a *composite primary key*.
   * For join tables to be used transparently for relationships your join table must have
-  a *composite primary key* that encompasses both foreign table foreign keys. For example, on a
-  join table named `user_videos` you should have: `primary key(user_id, video_id)`, with both `user_id`
-  and `video_id` being foreign key columns to the users and videos tables respectively.
+  a *composite primary key* that encompasses both foreign table foreign keys and
+  no other columns in the table. For example, on a join table named
+  `user_videos` you should have: `primary key(user_id, video_id)`, with both
+  `user_id` and `video_id` being foreign key columns to the users and videos
+  tables respectively and there are no other columns on this table.
 * For MySQL if using the `github.com/go-sql-driver/mysql` driver, please activate
   [time.Time parsing](https://github.com/go-sql-driver/mysql#timetime-support) when making your
   MySQL database connection. SQLBoiler uses `time.Time` and `null.Time` to represent time in
@@ -256,14 +258,16 @@ go get github.com/admpub/sqlboiler/drivers/sqlboiler-psql
 
 Create a configuration file. Because the project uses [viper](https://github.com/spf13/viper), TOML, JSON and YAML
 are all supported. Environment variables are also able to be used.
-We will assume TOML for the rest of the documentation.
 
-The configuration file should be named `sqlboiler.toml` and is searched for in the following directories in this
+The configuration file should be named `sqlboiler.toml` for TOML, `sqlboiler.json` for JSON and
+`sqlboiler.yaml` or `sqlboiler.yml` for YAML and is searched for in the following directories in this
 order:
 
 - `./`
 - `$XDG_CONFIG_HOME/sqlboiler/`
 - `$HOME/.config/sqlboiler/`
+
+We will assume TOML for the rest of the documentation.
 
 We require you pass in your `psql` and `mysql` database configuration via the configuration file rather than env vars.
 There is no command line argument support for database configuration. Values given under the `postgres` and `mysql`
@@ -748,6 +752,13 @@ The most common causes of problems and panics are:
     global database handle using `boil.SetDB()`.
 - Naming collisions, if the code fails to compile because there are naming collisions, look at the
   [aliasing](#aliases) feature.
+- A field not being inserted (usually a default true boolean), `boil.Infer` looks at the zero
+  value of your Go type (it doesn't care what the default value in the database is) to determine
+  if it should insert your field or not. In the case of a default true boolean value, when you
+  want to set it to false; you set that in the struct but that's the zero value for the bool
+  field in Go so sqlboiler assumes you do not want to insert that field and you want the default
+  value from the database. Use a whitelist/greylist to add that field to the list of fields
+  to insert.
 
 For errors with other causes, it may be simple to debug yourself by looking at the generated code.
 Setting `boil.DebugMode` to `true` can help with this. You can change the output using `boil.DebugWriter` (defaults to `os.Stdout`).
@@ -1329,16 +1340,30 @@ Find is used to find a single row by primary key:
 
 ```go
 // Retrieve pilot with all columns filled
-pilot, err := models.FindPilot(db, 1)
+pilot, err := models.FindPilot(ctx, db, 1)
 
 // Retrieve a subset of column values
-jet, err := models.FindJet(db, 1, "name", "color")
+jet, err := models.FindJet(ctx, db, 1, "name", "color")
 ```
 
 ### Insert
 
-The main thing to be aware of with `Insert` is how the `columns` argument operates. You can supply
-one of the following column lists: `boil.Infer`, `boil.Whitelist`, `boil.Blacklist`, or `boil.Greylist`.
+The main thing to be aware of with `Insert` is how the `columns` argument
+operates. You can supply one of the following column lists:
+`boil.Infer`, `boil.Whitelist`, `boil.Blacklist`, or `boil.Greylist`.
+
+These lists control what fields are inserted into the database, and what values
+are returned to your struct from the database (default, auto incrementing,
+trigger-based columns are candidates for this). Your struct will have those
+values after the insert is complete.
+
+When you use inference `sqlboiler` looks at your Go struct field values and if
+the field value is the zero value it will not insert that field, instead it will
+get the value from the database. Keep in mind `sqlboiler` cannot read or
+understand your default values set in the database, so the Go zero value is
+what's important here (this can be especially troubling for default true bool
+fields). Use a whitelist or greylist in cases where you want to insert a Go
+zero value.
 
 | Column List | Behavior |
 | ----------- | -------- |
@@ -1350,9 +1375,6 @@ one of the following column lists: `boil.Infer`, `boil.Whitelist`, `boil.Blackli
 See the documentation for
 [boil.Columns.InsertColumnSet](https://godoc.org/github.com/admpub/sqlboiler/boil/#Columns.InsertColumnSet)
 for more details.
-
-Also note that your object will automatically be updated with any missing default values from the
-database after the `Insert` is finished executing. This includes auto-incrementing column values.
 
 ```go
 var p1 models.Pilot
@@ -1387,8 +1409,11 @@ for a collection of rows.
 `Update` on a single object optionally takes a `whitelist`. The purpose of the
 whitelist is to specify which columns in your object should be updated in the database.
 
-Like `Insert`, this method also takes a `Columns` type, but the behavior is slighty different.
-Although the descriptions below look similar the full documentation reveals the differences.
+Like `Insert`, this method also takes a `Columns` type, but the behavior is
+slighty different. Although the descriptions below look similar the full
+documentation reveals the differences. Note that all inference is based on
+the Go types zero value and not the database default value, read the `Insert`
+documentation above for more details.
 
 | Column List | Behavior |
 | ----------- | -------- |
