@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/volatiletech/sqlboiler/queries"
+	"github.com/admpub/sqlboiler/queries"
 )
 
 // Nullable object
