@@ -66,6 +66,7 @@ Table of Contents
     * [Diagnosing Problems](#diagnosing-problems)
     * [Features &amp; Examples](#features--examples)
       * [Automatic CreatedAt/UpdatedAt](#automatic-createdatupdatedat)
+        * [Skipping Automatic Timestamps](#skipping-automatic-timestamps)
         * [Overriding Automatic Timestamps](#overriding-automatic-timestamps)
       * [Query Building](#query-building)
       * [Query Mod System](#query-mod-system)
@@ -75,6 +76,7 @@ Table of Contents
       * [Binding](#binding)
       * [Relationships](#relationships)
       * [Hooks](#hooks)
+        * [Skipping Hooks](#skipping-hooks)
       * [Transactions](#transactions)
       * [Debug Logging](#debug-logging)
       * [Select](#select)
@@ -90,6 +92,10 @@ Table of Contents
     * [FAQ](#faq)
         * [Won't compiling models for a huge database be very slow?](#wont-compiling-models-for-a-huge-database-be-very-slow)
         * [Missing imports for generated package](#missing-imports-for-generated-package)
+        * [How should I handle multiple schemas](#how-should-i-handle-multiple-schemas)
+        * [How do I use the types.BytesArray for Postgres bytea arrays?](#how-do-i-use-typesbytesarray-for-postgres-bytea-arrays)
+        * [Why aren't my time.Time or null.Time fields working in MySQL?](#why-arent-my-timetime-or-nulltime-fields-working-in-mysql)
+        * [Where is the homepage?](#where-is-the-homepage)
   * [Benchmarks](#benchmarks)
 
 ## About SQL Boiler
@@ -122,9 +128,15 @@ Table of Contents
 
 | Database          | Driver Location |
 | ----------------- | --------------- |
+<<<<<<< HEAD
 | PostgreSQL        | [https://github.com/admpub/sqlboiler/drivers/sqlboiler-psql](drivers/sqlboiler-psql)
 | MySQL             | [https://github.com/admpub/sqlboiler/drivers/sqlboiler-mysql](drivers/sqlboiler-mysql)
 | MSSQLServer 2012+ | [https://github.com/admpub/sqlboiler/drivers/sqlboiler-mysql](drivers/sqlboiler-mssql)
+=======
+| PostgreSQL        | [https://github.com/volatiletech/sqlboiler/drivers/sqlboiler-psql](drivers/sqlboiler-psql)
+| MySQL             | [https://github.com/volatiletech/sqlboiler/drivers/sqlboiler-mysql](drivers/sqlboiler-mysql)
+| MSSQLServer 2012+ | [https://github.com/volatiletech/sqlboiler/drivers/sqlboiler-mssql](drivers/sqlboiler-mssql)
+>>>>>>> df8550538fefdf62f2520e74dbfad73f1bcb84a2
 | SQLite3           | https://github.com/volatiletech/sqlboiler-sqlite3
 | CockroachDB       | https://github.com/glerchundi/sqlboiler-crdb
 
@@ -161,7 +173,7 @@ users, err := models.Users().All(ctx, db)
 users := models.Users().AllP(db)
 
 // More complex query
-users, err := models.Users(Where("age > ?", 30), Limit(5), Offset(6)).All(db, ctx)
+users, err := models.Users(Where("age > ?", 30), Limit(5), Offset(6)).All(ctx, db)
 
 // Ultra complex query
 users, err := models.Users(
@@ -214,12 +226,18 @@ fmt.Println(len(users.R.FavoriteMovies))
   `user_videos` you should have: `primary key(user_id, video_id)`, with both
   `user_id` and `video_id` being foreign key columns to the users and videos
   tables respectively and there are no other columns on this table.
+* MySQL 5.6.30 minimum; ssl-mode option is not supported for earlier versions.
 * For MySQL if using the `github.com/go-sql-driver/mysql` driver, please activate
   [time.Time parsing](https://github.com/go-sql-driver/mysql#timetime-support) when making your
   MySQL database connection. SQLBoiler uses `time.Time` and `null.Time` to represent time in
   it's models and without this enabled any models with `DATE`/`DATETIME` columns will not work.
 
 ### Pro Tips
+
+* SQLBoiler generates type safe identifiers for table names, table column names,
+  a table's relationship names and type-safe where clauses. You should use these
+  instead of strings due to the ability to catch more errors at compile time
+  when your database schema changes. See [Constants](#constants) for details.
 * It's highly recommended to use transactions where sqlboiler will be doing
   multiple database calls (relationship setops with insertions for example) for
   both performance and data integrity.
@@ -870,6 +888,12 @@ To disable this feature use `--no-auto-timestamps`.
 
 Note: You can set the timezone for this feature by calling `boil.SetLocation()`
 
+#### Skipping Automatic Timestamps
+
+If for a given query you do not want timestamp columns to be updated
+then you can use `boil.SkipTimestamps` on the context you pass in to the query
+to prevent them from being updated.
+
 #### Overriding Automatic Timestamps
 
 * **Insert**
@@ -903,6 +927,8 @@ pilots, err := models.Pilots(qm.Limit(5)).All(ctx, db)
 
 // DELETE FROM "pilots" WHERE "id"=$1;
 err := models.Pilots(qm.Where("id=?", 1)).DeleteAll(ctx, db)
+// type safe version of above
+err := models.Pilots(models.PilotWhere.ID.EQ(1)).DeleteAll(ctx, db)
 ```
 
 In the event that you would like to build a query and specify the table yourself, you
@@ -910,20 +936,33 @@ can do so using `models.NewQuery()`:
 
 ```go
 // Select all rows from the pilots table by using the From query mod.
-err := models.NewQuery(db, From("pilots")).All(ctx, db)
+err := models.NewQuery(db, qm.From("pilots")).All(ctx, db)
 ```
 
-As you can see, [Query Mods](#query-mods) allow you to modify your queries, and [Finishers](#finishers)
-allow you to execute the final action.
+As you can see, [Query Mods](#query-mod-system) allow you to modify your
+queries, and [Finishers](#finishers) allow you to execute the final action.
 
 We also generate query building helper methods for your relationships as well. Take a look at our
 [Relationships Query Building](#relationships) section for some additional query building information.
 
-
 ### Query Mod System
 
-The query mod system allows you to modify queries created with [Starter](#query-building) methods
-when performing query building. Here is a list of all of your generated query mods using examples:
+The query mod system allows you to modify queries created with
+[Starter](#query-building) methods when performing query building.
+See examples below.
+
+**NOTE:** SQLBoiler generates type-safe identifiers based on your database
+tables, columns and relationships. Using these is a bit more verbose, but is
+especially safe since when the names change in the database the generated
+code will be different causing compilation failures instead of runtime
+errors. It is highly recommended you use these instead of regular strings.
+See [Constants](#constants) for more details.
+
+**NOTE:** You will notice that there is printf used below mixed with SQL
+statements. This is normally NOT OK if the user is able to supply any of
+the sql string, but here we always use a `?` placeholder and pass arguments
+so that the only thing that's being printf'd are constants which makes it
+safe, but be careful!
 
 ```go
 // Dot import so we can access query mods directly instead of prefixing with "qm."
@@ -936,24 +975,46 @@ SQL("select * from pilots where id=$1", 10)
 models.Pilots(SQL("select * from pilots where id=$1", 10)).All()
 
 Select("id", "name") // Select specific columns.
+Select(models.PilotColumns.ID, models.PilotColumns.Name)
 From("pilots as p") // Specify the FROM table manually, can be useful for doing complex queries.
+From(models.TableNames.Pilots + " as p")
 
 // WHERE clause building
 Where("name=?", "John")
+models.PilotWhere.Name.EQ("John")
 And("age=?", 24)
+// No equivalent type safe query yet
 Or("height=?", 183)
+// No equivalent type safe query yet
+
+Where("(name=? and age=?) or (age=?)", "John", 5, 6)
+// Expr allows manual grouping of statements
+Where(
+  Expr(
+    models.PilotWhere.Name.EQ("John"),
+    Or2(models.PilotWhere.Age.Eq(5),
+  ),
+  Or2(models.PilotAge),
+)
 
 // WHERE IN clause building
 WhereIn("name, age in ?", "John", 24, "Tim", 33) // Generates: WHERE ("name","age") IN (($1,$2),($3,$4))
+WhereIn(fmt.Sprintf("%s, %s in ?", models.PilotColumns.Name, models.PilotColumns.Age, "John", 24, "Tim", 33))
 AndIn("weight in ?", 84)
+AndIn(models.PilotColumns.Weight + " in ?", 84)
 OrIn("height in ?", 183, 177, 204)
+OrIn(models.PilotColumns.Height + " in ?"), 183, 177, 204)
 
 InnerJoin("pilots p on jets.pilot_id=?", 10)
+InnerJoin(models.TableNames.Pilots + " p on " + models.TableNames.Jets + "." + models.JetColumns.PilotID + "=?", 10)
 
 GroupBy("name")
+GroupBy(models.PilotColumns.Name)
 OrderBy("age, height")
+OrderBy(models.PilotColumns.Age, models.PilotColumns.Height)
 
 Having("count(jets) > 2")
+Having(fmt.Sprintf("count(%s) > 2", models.TableNames.Jets)
 
 Limit(15)
 Offset(5)
@@ -964,6 +1025,7 @@ For("update nowait")
 // Eager Loading -- Load takes the relationship name, ie the struct field name of the
 // Relationship struct field you want to load. Optionally also takes query mods to filter on that query.
 Load("Languages", Where(...)) // If it's a ToOne relationship it's in singular form, ToMany is plural.
+Load(models.PilotRels.Languages, Where(...))
 ```
 
 Note: We don't force you to break queries apart like this if you don't want to, the following
@@ -1067,11 +1129,11 @@ err := queries.Raw(db, `
 ).Bind(&paj)
 
 // Use query building
-err := models.NewQuery(db,
+err := models.NewQuery(
   Select("pilots.id", "pilots.name", "jets.id", "jets.pilot_id", "jets.age", "jets.name", "jets.color"),
   From("pilots"),
   InnerJoin("jets on jets.pilot_id = pilots.id"),
-).Bind(&paj)
+).Bind(ctx, db, &paj)
 ```
 
 ```go
@@ -1084,10 +1146,10 @@ type JetInfo struct {
 var info JetInfo
 
 // Use query building
-err := models.NewQuery(db, Select("sum(age) as age_sum", "count(*) as juicy_count", From("jets"))).Bind(&info)
+err := models.NewQuery(Select("sum(age) as age_sum", "count(*) as juicy_count", From("jets"))).Bind(ctx, db, &info)
 
 // Use a raw query
-err := queries.Raw(db, `select sum(age) as "age_sum", count(*) as "juicy_count" from jets`).Bind(&info)
+err := queries.Raw(`select sum(age) as "age_sum", count(*) as "juicy_count" from jets`).Bind(ctx, db, &info)
 ```
 
 We support the following struct tag modes for `Bind()` control:
@@ -1154,6 +1216,8 @@ for i := 0; i < len(jets); i++ {
 
 // Instead, use Eager Loading!
 jets, _ := models.Jets(Load("Pilot")).All(ctx, db)
+// Type safe relationship names exist too:
+jets, _ := models.Jets(Load(models.JetRels.Pilot)).All(ctx, db)
 ```
 
 Eager loading can be combined with other query mods, and it can also eager load recursively.
@@ -1163,6 +1227,9 @@ Eager loading can be combined with other query mods, and it can also eager load 
 // Each jet will have its pilot loaded, and each pilot will have its languages loaded.
 jets, _ := models.Jets(Load("Pilot.Languages")).All(ctx, db)
 // Note that each level of a nested Load call will be loaded. No need to call Load() multiple times.
+
+// Type safe queries exist for this too!
+jets, _ := models.Jets(LoadRels(models.JetRels.Pilot, models.PilotRels.Languages)).All(ctx, db)
 
 // A larger example. In the below scenario, Pets will only be queried one time, despite
 // showing up twice because they're the same query (the user's pets)
@@ -1279,6 +1346,11 @@ models.AddPilotHook(boil.BeforeInsertHook, myHook)
 
 Your `ModelHook` will always be defined as `func(context.Context, boil.ContextExecutor, *Model) error` if context is not turned off.
 
+#### Skipping Hooks
+
+You can skip hooks by using the `boil.SkipHooks` on the context you pass in
+to a given query.
+
 ### Transactions
 
 The `boil.Executor` and `boil.ContextExecutor` interface powers all of SQLBoiler. This means
@@ -1286,7 +1358,6 @@ anything that conforms to the three `Exec/Query/QueryRow` methods (and their con
 can be used to execute queries. `sql.DB`, `sql.Tx` as well as other
 libraries (`sqlx`) conform to this interface, and therefore any of these things may be
 used as an executor for any query in the system. This makes using transactions very simple:
-
 
 ```go
 tx, err := db.BeginTx(ctx, nil)
@@ -1329,9 +1400,13 @@ Select is done through [Query Building](#query-building) and [Find](#find). Here
 ```go
 // Select one pilot
 pilot, err := models.Pilots(qm.Where("name=?", "Tim")).One(ctx, db)
+// Type safe variant
+pilot, err := models.Pilots(models.PilotWhere.Name.EQ("Tim")).One(ctx, db)
 
 // Select specific columns of many jets
 jets, err := models.Jets(qm.Select("age", "name")).All(ctx, db)
+// Type safe variant
+jets, err := models.Jets(qm.Select(models.JetColumns.Age, models.JetColumns.Name)).All(ctx, db)
 ```
 
 ### Find
@@ -1371,6 +1446,8 @@ zero value.
 | Whitelist   | Insert only the columns specified in this list
 | Blacklist   | Infer the column list, but ensure these columns are not inserted
 | Greylist    | Infer the column list, but ensure these columns are inserted
+
+**NOTE:** CreatedAt/UpdatedAt are not included in `Whitelist` automatically.
 
 See the documentation for
 [boil.Columns.InsertColumnSet](https://godoc.org/github.com/admpub/sqlboiler/boil/#Columns.InsertColumnSet)
@@ -1422,6 +1499,8 @@ documentation above for more details.
 | Blacklist   | Infer the column list for updating, but ensure these columns are not updated
 | Greylist    | Infer the column list, but ensure these columns are updated
 
+**NOTE:** CreatedAt/UpdatedAt are not included in `Whitelist` automatically.
+
 See the documentation for
 [boil.Columns.UpdateColumnSet](https://godoc.org/github.com/admpub/sqlboiler/boil/#Columns.UpdateColumnSet)
 for more details.
@@ -1430,7 +1509,7 @@ for more details.
 // Find a pilot and update his name
 pilot, _ := models.FindPilot(ctx, db, 1)
 pilot.Name = "Neo"
-rowsAff, err := pilot.Update(ctx, db)
+rowsAff, err := pilot.Update(ctx, db, boil.Infer())
 
 // Update a slice of pilots to have the name "Smith"
 pilots, _ := models.Pilots().All(ctx, db)
@@ -1574,7 +1653,15 @@ instead of an enum.
 
 ### Constants
 
-The models package will also contain some structs that contain all of the table and column names harvested from the database at generation time. Eager loading constants are also generated mainly to avoid hardcoding and possible runtime issues.
+The models package will also contain some structs that contain all table,
+column, relationship names harvested from the database at generation time. Type
+safe where query mods are also generated.
+
+There are type safe identifiers at:
+* models.TableNames.TableName
+* models.ModelColumns.ColumnName
+* models.ModelWhere.ColumnName.Operator
+* models.ModelRels.ForeignTableName
 
 For table names they're generated under `models.TableNames`:
 
@@ -1607,6 +1694,20 @@ var MessageColumns = struct {
 fmt.Println(models.MessageColumns.ID)
 ```
 
+For where clauses they're generated under `models.{Model}Where.{Column}.{Operator}`:
+```go
+var MessageWhere = struct {
+	ID       whereHelperint
+	Text     whereHelperstring
+}{
+	ID:         whereHelperint{field: `id`},
+	PurchaseID: whereHelperstring{field: `purchase_id`},
+}
+
+// Usage example:
+models.Messages(models.MessageWhere.PurchaseID.EQ("hello"))
+```
+
 For eager loading relationships ther're generated under `models.{Model}Rels`:
 ```go
 // Generated code from models package
@@ -1618,6 +1719,17 @@ var MessageRels = struct {
 
 // Usage example:
 fmt.Println(models.MessageRels.Purchase)
+```
+
+**NOTE:** You can also assign the ModelWhere or ColumnNames to a variable and
+although you probably pay some performance penalty with it sometimes the
+readability increase is worth it:
+
+```go
+cols := &models.UserColumns
+where := &models.UserWhere
+
+u, err := models.Users(where.Name.EQ("hello"), qm.Or(cols.Age + "=?", 5))
 ```
 
 ## FAQ

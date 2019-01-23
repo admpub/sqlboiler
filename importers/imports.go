@@ -7,8 +7,10 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/pkg/errors"
+	"github.com/spf13/cast"
+
 	"github.com/admpub/sqlboiler/strmangle"
+	"github.com/pkg/errors"
 )
 
 // Collection of imports for various templating purposes
@@ -126,7 +128,7 @@ func MapFromInterface(intf interface{}) (Map, error) {
 		switch toIter := intf.(type) {
 		case []interface{}:
 			for _, intf := range toIter {
-				obj := intf.(map[string]interface{})
+				obj := cast.ToStringMap(intf)
 				name := obj["name"].(string)
 				if err := fn(name, intf); err != nil {
 					return err
@@ -203,6 +205,7 @@ func NewDefaultImports() Collection {
 			`"github.com/admpub/sqlboiler/boil"`,
 			`"github.com/admpub/sqlboiler/queries"`,
 			`"github.com/admpub/sqlboiler/queries/qm"`,
+			`"github.com/admpub/sqlboiler/queries/qmhelper"`,
 			`"github.com/admpub/sqlboiler/strmangle"`,
 		},
 	}

@@ -3,6 +3,50 @@
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## [v3.2.0] - 2019-01-22
+
+### Added
+
+- Type-safe where clauses can now be created, see README for details. It is
+  highly recommended that this be used at all times.
+- Type-safe where clauses can now be combined with Or2 for setting or.
+- The new Expr query mod will allow you to group where statements manually
+  (this turns off all automatic paretheses in the where clause for the query).
+- Driver specific commands (eg. pg_dump) that are run for test scaffolding
+  will now output their error messages to stderr where they were previously
+  silently failing (thanks @LukasAuerbeck)
+- Add skipsqlcmd to generated test code for each driver. This allows skipping
+  the whole drop/create database cycle while testing so you may point sqlboiler
+  at a pre-setup test database. (thanks @gemscng)
+- Add a way to skip hook execution for a given query (boil.SkipHooks)
+- Add a way to skip timestamp updating for a given query (boil.SkipTimestamps)
+- Add note about mysql minimum version requirement to README (thanks @jlarusso)
+
+### Fixed
+
+- Fix panic on eager load with nullable foreign keys
+- Fix bug that prevented 'where' and 'in' from being mixed naturally as 'in'
+  query mods would always be rendered at the end of the query resulting in
+  an unintentional problem.
+- Fix an issue where 'in' query mods were not being automatically grouped in
+  parentheses like 'where' statements.
+- Fix bug where mysql columns can sometimes be selected out of order in
+  certain internal queries. (thanks @cpickett-ml)
+- Fix bug where an incorrect query could be built while eager loading nullable
+  relations (thanks @parnic)
+- Fix bug where aliases weren't used in many-to-many eager loading
+  (thanks @nwidger for suggested fix)
+- Fix bug where mysql driver would look outside the current database for
+  indexes that applied to tables and columns named the same and apply those
+  constraints to the generated schema.
+- Fix MSSQL Link in Readme (thanks @philips)
+- Fix bug where psql upsert would error when not doing an update
+- Fix bug where mysql upsert did not have quotes around the table name
+- Fix bug where yaml config files would panic due to type assertions (thanks
+  @ch3rub1m)
+- Fix bug where a table name that was a Go keyword could cause test failures
+- Fix missing boil.Columns type in README (thanks @tatane616)
+
 ## [v3.1.0] - 2018-10-29
 
 ### Added
