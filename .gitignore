@@ -3,7 +3,7 @@
 /sqlboiler-mysql
 /sqlboiler-mssql
 /cmd/sqlboiler/sqlboiler
-sqlboiler.toml
+/sqlboiler.toml
 models/
 testschema.sql
 .cover
