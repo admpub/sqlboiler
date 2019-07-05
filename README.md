@@ -128,15 +128,9 @@ Table of Contents
 
 | Database          | Driver Location |
 | ----------------- | --------------- |
-<<<<<<< HEAD
 | PostgreSQL        | [https://github.com/admpub/sqlboiler/drivers/sqlboiler-psql](drivers/sqlboiler-psql)
 | MySQL             | [https://github.com/admpub/sqlboiler/drivers/sqlboiler-mysql](drivers/sqlboiler-mysql)
 | MSSQLServer 2012+ | [https://github.com/admpub/sqlboiler/drivers/sqlboiler-mysql](drivers/sqlboiler-mssql)
-=======
-| PostgreSQL        | [https://github.com/volatiletech/sqlboiler/drivers/sqlboiler-psql](drivers/sqlboiler-psql)
-| MySQL             | [https://github.com/volatiletech/sqlboiler/drivers/sqlboiler-mysql](drivers/sqlboiler-mysql)
-| MSSQLServer 2012+ | [https://github.com/volatiletech/sqlboiler/drivers/sqlboiler-mssql](drivers/sqlboiler-mssql)
->>>>>>> df8550538fefdf62f2520e74dbfad73f1bcb84a2
 | SQLite3           | https://github.com/volatiletech/sqlboiler-sqlite3
 | CockroachDB       | https://github.com/glerchundi/sqlboiler-crdb
 
